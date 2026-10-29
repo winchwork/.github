@@ -7,6 +7,11 @@
 
 <p align="center">
   <a href="https://winchwork.com">winchwork.com</a> ·
-  <a href="https://winchworkstudios.com">Winchwork Studios</a> ·
+  <a href="https://winchworkstudios.com">winchworkstudios.com</a>
+</p>
+
+<p align="center">
+  <a href="https://www.instagram.com/winchworkstudios/">Instagram</a> ·
+  <a href="https://www.tiktok.com/@winchworkstudios">TikTok</a> ·
   <a href="https://www.youtube.com/@Winchworkstudios">YouTube</a>
 </p>
