@@ -1,0 +1,44 @@
+name: Task
+description: One piece of work under a project card. Never a loose card.
+type: Task
+projects: ["winchwork/1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Rules:** `winchwork/winchwork-hq` → `docs/TRACKING.md`. Read them first.
+        Every task is a **sub-issue of a project card**. After creating this issue, open the project card and add this issue under it (Sub-issues → Add existing issue). Never transfer an issue to another repo.
+        Then set **Owner**, **Product** and **Area** in the sidebar.
+  - type: input
+    id: parent
+    attributes:
+      label: Project card
+      description: "The parent card in winchwork-hq, for example winchwork-hq#177 (Night Shift). No card fits? Ask Zara; don't open one."
+      placeholder: winchwork-hq#
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: Owner
+      description: Who does the work. Also set it in the sidebar field.
+      options: [Dominick, Zara, Ambra, Sode, Spark, Trillian]
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: "The reason. Tag every fact: [you] Dominick said it, [measured] with date and place, [carried] from an earlier doc."
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: "Two or three lines saying what finished looks like, written before the work. Mark them as your draft; Dominick accepts by commenting \"accepted\"."
+      value: |
+        `[<your name> draft, not yet accepted]`
+        - [ ] 
+    validations:
+      required: true
