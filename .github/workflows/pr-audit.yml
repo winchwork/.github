@@ -1,5 +1,5 @@
 # Org-wide PR audit (required workflow in the protect-main ruleset, runs in every repo): the Claude Code
-# auditor REVIEWS every pull request into main. Source: winchwork/.github org-workflows/. Each repo keeps its own
+# auditor REVIEWS every pull request into main. Source: winchwork/.github .github/workflows/. Each repo keeps its own
 # CLAUDE_CODE_OAUTH_TOKEN secret and WONK_CREW variable (agents installed on that repo only).
 # It never changes files. On a pass it merges the audited commit; on a fail it comments and
 # leaves the pull request open. Dominick, 2026-10-22: "I don't want to have to check every
