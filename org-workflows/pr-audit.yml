@@ -1,0 +1,112 @@
+# Org-wide PR audit (required workflow in the protect-main ruleset, runs in every repo): the Claude Code
+# auditor REVIEWS every pull request into main. Source: winchwork/.github org-workflows/. Each repo keeps its own
+# CLAUDE_CODE_OAUTH_TOKEN secret and WONK_CREW variable (agents installed on that repo only).
+# It never changes files. On a pass it merges the audited commit; on a fail it comments and
+# leaves the pull request open. Dominick, 2026-10-22: "I don't want to have to check every
+# pull request".
+#
+# One check only: no API key, password, token or other secret in the change.
+# Dominick, 2026-10-22: "the only guards were API keys, passwords, the usual sanitization".
+# Who opened the pull request is shown by GitHub itself (each agent has its own app).
+#
+# Agents post as GitHub Apps (one per agent). The Claude action refuses bot-made pull
+# requests unless the bot is listed, so the list is the repository variable WONK_CREW:
+# comma-separated, exact names, e.g. "winchwork-trillian[bot],winchwork-sode[bot]".
+# Never "*". Dominick sets it in Settings, Secrets and variables, Actions, Variables.
+#
+# Key: repository secret CLAUDE_CODE_OAUTH_TOKEN (Dominick adds it), same as the game repo.
+name: pr-audit
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+concurrency:
+  group: pr-audit-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  audit:
+    # only pull requests from branches of this repository, and never drafts
+    if: github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    permissions:
+      contents: write        # merge on a pass
+      pull-requests: write   # comment the result
+      checks: read           # wait for secret-check
+      statuses: read
+      actions: read         # see secret-check's result
+      id-token: write        # used by claude-code-action
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Claude Code audit
+        id: audit
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: ${{ vars.WONK_CREW }}
+          prompt: |
+            You are the auditor for pull request #${{ github.event.pull_request.number }} in
+            ${{ github.repository }}, into ${{ github.base_ref }}.
+            You REVIEW ONLY. Never change, create, commit or push any file.
+            The change: `git diff origin/${{ github.base_ref }}...HEAD`.
+
+            One check only: the change must not contain any secret: API keys, passwords,
+            tokens, private keys, connection strings with credentials, or similar.
+            Fail and name file and line for each one found; never repeat the secret itself.
+            Nothing else is checked.
+
+            Return pass (boolean) and reasons (one short string).
+          claude_args: |
+            --max-turns 30
+            --allowedTools "Read,Glob,Grep,Bash(git diff:*),Bash(git log:*),Bash(git show:*)"
+            --disallowedTools "Edit,Write,MultiEdit,NotebookEdit"
+            --json-schema '{"type":"object","properties":{"pass":{"type":"boolean"},"reasons":{"type":"string"}},"required":["pass","reasons"]}'
+
+      - name: Comment the result
+        if: ${{ !cancelled() && steps.audit.conclusion != 'skipped' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PASS: ${{ fromJSON(steps.audit.outputs.structured_output || '{}').pass }}
+          REASONS: ${{ fromJSON(steps.audit.outputs.structured_output || '{}').reasons }}
+        run: |
+          if [ "$PASS" = "true" ]; then
+            # Guard: a change to .github/ (workflows, including secret-check) or a line using the
+            # "secret-check: allow" escape is never merged automatically; Dominick merges it.
+            gh pr diff "$PR" --name-only > files.txt
+            gh pr diff "$PR" > change.diff
+            if grep -q '^\.github/' files.txt || grep -q '^+.*secret-check: allow' change.diff; then
+              printf 'Claude Code audit: **pass**, but **not merged**: this pull request changes .github/ or uses `secret-check: allow`. Dominick merges it.\n\n%s\n' "$REASONS" > body.md
+              gh pr comment "$PR" --body-file body.md
+              exit 0
+            fi
+            # Wait for the secret-check (plain regex) to finish; merge only if it passed.
+            STATE=PENDING
+            for i in $(seq 1 30); do
+              STATE=$(gh pr checks "$PR" --json name,state --jq '.[] | select(.name=="secret-check") | .state' | head -n 1)
+              case "$STATE" in SUCCESS|FAILURE|ERROR|CANCELLED|TIMED_OUT|SKIPPED) break ;; esac
+              sleep 10
+            done
+            if [ "$STATE" != "SUCCESS" ]; then
+              printf 'Claude Code audit: **pass**, but **not merged**: secret-check is %s.\n\n%s\n' "${STATE:-missing}" "$REASONS" > body.md
+              gh pr comment "$PR" --body-file body.md
+              exit 1
+            fi
+            printf 'Claude Code audit: **pass**. Auto-merge set: GitHub merges when all checks have passed.\n\n%s\n' "$REASONS" > body.md
+            gh pr comment "$PR" --body-file body.md
+            # only the commit that was audited is merged
+            # Required workflow: its own check must finish before a merge is allowed, so set auto-merge
+            # (GitHub merges once every required check, this one included, has passed).
+            gh pr merge "$PR" --auto --merge --match-head-commit "$HEAD_SHA"
+          elif [ -z "$REASONS" ]; then
+            printf 'Claude Code audit: **not run**.\n\nThe auditor gave no result: the key is missing, the app is not in WONK_CREW, or this pull request changes this workflow file.\n' > body.md
+            gh pr comment "$PR" --body-file body.md
+            exit 1
+          else
+            printf 'Claude Code audit: **fail**.\n\n%s\n' "$REASONS" > body.md
+            gh pr comment "$PR" --body-file body.md
+            exit 1
+          fi
