@@ -40,6 +40,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Key shape (length and hidden characters only, never the key)
+        env:
+          K: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          echo "length=${#K}"
+          echo "starts_sk-ant-oat01=$([[ "$K" == sk-ant-oat01-* ]] && echo yes || echo no)"
+          echo "spaces=$(printf '%s' "$K" | tr -cd ' ' | wc -c)"
+          echo "tabs=$(printf '%s' "$K" | tr -cd '\t' | wc -c)"
+          echo "newlines=$(printf '%s' "$K" | tr -cd '\n' | wc -c)"
+          echo "carriage_returns=$(printf '%s' "$K" | tr -cd '\r' | wc -c)"
+          echo "other_chars=$(printf '%s' "$K" | LC_ALL=C tr -d 'A-Za-z0-9_-' | wc -c)"
+
       - name: Claude Code audit
         id: audit
         uses: anthropics/claude-code-action@v1
