@@ -1,0 +1,38 @@
+name: Bug
+description: Something that is broken. Still a sub-issue of a project card.
+type: Bug
+projects: ["winchwork/1"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Rules:** `winchwork/winchwork-hq` → `docs/TRACKING.md`. After creating this issue, add it as a sub-issue of its project card, and set Owner, Product and Area in the sidebar.
+  - type: input
+    id: parent
+    attributes:
+      label: Project card
+      placeholder: winchwork-hq#
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What is broken
+      description: What you saw, where, and when [measured, with date and place].
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      value: |
+        `[<your name> draft, not yet accepted]`
+        - [ ] 
+    validations:
+      required: true
