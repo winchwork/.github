@@ -127,31 +127,3 @@ jobs:
             gh pr comment "$PR" --body-file body.md
             exit 1
           fi
-
-  # Second step, after the audit job has finished: GitHub sometimes never re-checks auto-merge
-  # once the audit's own check completes (PRs #41 and #46, 10 Nov). Switch auto-merge off and on
-  # again so GitHub looks at the finished checks. Runs only when the audit set auto-merge, so the
-  # .github/ and "secret-check: allow" guard above still applies.
-  merge:
-    needs: audit
-    if: needs.audit.outputs.merge == 'true'
-    runs-on: ubuntu-26.04
-    timeout-minutes: 10
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Re-arm auto-merge
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          PR: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          for i in 1 2 3 4 5 6; do
-            if [ "$(gh pr view "$PR" --json state --jq .state)" = "MERGED" ]; then exit 0; fi
-            gh pr merge "$PR" --disable-auto || true
-            gh pr merge "$PR" --auto --merge --match-head-commit "$HEAD_SHA" || true
-            sleep 20
-          done
-          echo "Not merged after 2 minutes; leaving auto-merge on."
